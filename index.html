@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=0,viewport-fit=cover"
+    />
+    <title>LINE MINI App - Service Message</title>
+    <script
+      charset="utf-8"
+      src="https://static.line-scdn.net/liff/edge/2/sdk.js"
+    ></script>
+  </head>
+  <body>
+    <div id="status" style="padding: 20px; text-align: center; font-family: sans-serif;">
+      Loading...
+    </div>
+
+    <script>
+      // *** ใส่ URL ที่ได้จากการ Deploy Google Apps Script ตรงนี้ ***
+      const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxiyNM1BnE5HZLjndq3j9VEu5VclvuvHy_2OEiJy0whnj_qJcYr_h7A9DxHj92iit8RtQ/exec"; 
+      
+      // *** ใส่ LIFF ID ของคุณตรงนี้ ***
+      const MY_LIFF_ID = "2000535610-nEkZrbmA";
+
+      async function main() {
+        const statusDiv = document.getElementById("status");
+        
+        try {
+          // 2. Initialize LIFF
+          await liff.init({ liffId: MY_LIFF_ID });
+
+          // 3. Check login
+          if (!liff.isLoggedIn()) {
+            liff.login();
+            return;
+          }
+
+          statusDiv.innerText = "กำลังส่งข้อความ Service Message...";
+
+          // 4. Get Token
+          const liffAccessToken = liff.getAccessToken();
+
+          // 5. Send request to Google Apps Script
+          // เราเปลี่ยนจาก Header มาส่งทาง Body ตามที่เขียน API ไว้ในข้อก่อนหน้า
+          const response = await fetch(GAS_API_URL, {
+            method: "POST",
+            headers: {
+              // ใช้ text/plain เพื่อเลี่ยง CORS Preflight ของ Google Apps Script
+              // แต่ GAS จะรับรู้และเราจะ parse JSON ในฝั่ง Server เอง
+              "Content-Type": "text/plain;charset=utf-8", 
+            },
+            body: JSON.stringify({
+              liffAccessToken: liffAccessToken
+            })
+          });
+
+          // 6. Check response
+          const result = await response.json();
+
+          if (result.status === 200) {
+            alert("ส่งข้อความสำเร็จ! (Message sent successfully)");
+            liff.closeWindow();
+          } else {
+            console.error(result);
+            statusDiv.innerText = "เกิดข้อผิดพลาด: " + result.message;
+            alert("Failed: " + result.message);
+          }
+
+        } catch (err) {
+          console.error(err);
+          statusDiv.innerText = "Error: " + err.message;
+          alert("Error sending message");
+        }
+      }
+
+      main();
+    </script>
+  </body>
+</html>
