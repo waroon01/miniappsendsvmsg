@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=0,viewport-fit=cover"
     />
-    <title>LINE MINI App - Service Message</title>
+    <title>LINE MINI App - Service Message (Node.js)</title>
     <script
       charset="utf-8"
       src="https://static.line-scdn.net/liff/edge/2/sdk.js"
@@ -18,20 +18,21 @@
     </div>
 
     <script>
-      // *** ใส่ URL ที่ได้จากการ Deploy Google Apps Script ตรงนี้ ***
-      const GAS_API_URL = "https://script.google.com/macros/s/AKfycbxiyNM1BnE5HZLjndq3j9VEu5VclvuvHy_2OEiJy0whnj_qJcYr_h7A9DxHj92iit8RtQ/exec"; 
+      // *** เปลี่ยน URL ตรงนี้ ***
+      // ถ้า test ในเครื่อง ต้องใช้ URL ที่ได้จาก ngrok (เพราะ LIFF บังคับ HTTPS)
+      // ตัวอย่าง: "https://xxxx-xxxx.ngrok-free.app/send-service-message"
+      const API_URL = "https://ec9578fac5d7.ngrok-free.app"; 
       
-      // *** ใส่ LIFF ID ของคุณตรงนี้ ***
       const MY_LIFF_ID = "2000535610-nEkZrbmA";
 
       async function main() {
         const statusDiv = document.getElementById("status");
         
         try {
-          // 2. Initialize LIFF
+          // 1. Initialize LIFF
           await liff.init({ liffId: MY_LIFF_ID });
 
-          // 3. Check login
+          // 2. Check login
           if (!liff.isLoggedIn()) {
             liff.login();
             return;
@@ -39,33 +40,34 @@
 
           statusDiv.innerText = "กำลังส่งข้อความ Service Message...";
 
-          // 4. Get Token
+          // 3. Get Token
           const liffAccessToken = liff.getAccessToken();
 
-          // 5. Send request to Google Apps Script
-          // เราเปลี่ยนจาก Header มาส่งทาง Body ตามที่เขียน API ไว้ในข้อก่อนหน้า
-          const response = await fetch(GAS_API_URL, {
+          // 4. Send request to Node.js Server
+          // *** จุดที่แก้ไข: ส่ง Header ได้ตามปกติแล้ว ***
+          const response = await fetch(API_URL, {
             method: "POST",
             headers: {
-              // ใช้ text/plain เพื่อเลี่ยง CORS Preflight ของ Google Apps Script
-              // แต่ GAS จะรับรู้และเราจะ parse JSON ในฝั่ง Server เอง
-              "Content-Type": "text/plain;charset=utf-8", 
+              "Content-Type": "application/json",     // ใช้ application/json ได้เลย
+              "x-liff-access-token": liffAccessToken  // ส่ง Token ผ่าน Header ตามที่ Node.js รอรับ
             },
-            body: JSON.stringify({
-              liffAccessToken: liffAccessToken
-            })
+            body: JSON.stringify({}) // Body ว่างก็ได้ เพราะ Token อยู่ใน Header แล้ว
           });
 
-          // 6. Check response
+          // 5. Check response
           const result = await response.json();
 
-          if (result.status === 200) {
+          // Node.js Express จะส่ง HTTP Status Code มาตราฐาน (200=OK, 400/500=Error)
+          if (response.ok) {
             alert("ส่งข้อความสำเร็จ! (Message sent successfully)");
+            console.log(result);
             liff.closeWindow();
           } else {
             console.error(result);
-            statusDiv.innerText = "เกิดข้อผิดพลาด: " + result.message;
-            alert("Failed: " + result.message);
+            // แสดง Error ที่ส่งมาจาก Backend
+            const errorMsg = result.error || result.details || "Unknown Error";
+            statusDiv.innerText = "เกิดข้อผิดพลาด: " + JSON.stringify(errorMsg);
+            alert("Failed: " + JSON.stringify(errorMsg));
           }
 
         } catch (err) {
